@@ -6,7 +6,7 @@ import WebKit
 
 struct ContentView: View {
     // Current WebXR samples URL
-    let targetURL = URL(string: "https://example.com")!
+    let targetURL = URL(string: "https://pmndrs.github.io/xr/examples/stage/")!
 
     var body: some View {
         ARWebView(url: targetURL)
