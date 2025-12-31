@@ -5,6 +5,8 @@ import WebKit
 
 struct ARWebView: UIViewRepresentable {
     let url: URL
+    // Binding to control visibility of UI based on AR status
+    @Binding var isARActive: Bool
 
     func makeUIView(context: Context) -> ARSCNView {
         let arView = ARSCNView(frame: .zero)
@@ -72,9 +74,19 @@ struct ARWebView: UIViewRepresentable {
         if webView.url?.absoluteString != url.absoluteString {
             webView.load(URLRequest(url: url))
         }
+        
+        // If SwiftUI set isARActive to false, but the session is running, force stop it
+        if !isARActive && context.coordinator.isSessionRunning {
+            context.coordinator.stopSession()
+        }
     }
 
     func makeCoordinator() -> ARWebCoordinator {
-        ARWebCoordinator()
+        let coordinator = ARWebCoordinator()
+        // Wire up the callback to update the SwiftUI binding
+        coordinator.onSessionActiveChanged = { isActive in
+            self.isARActive = isActive
+        }
+        return coordinator
     }
 }

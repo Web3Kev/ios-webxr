@@ -11,6 +11,9 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
     var dataCallbackName: String?
     var isSessionRunning = false
 
+    // Callback to notify SwiftUI when session state changes (true = running, false = stopped)
+    var onSessionActiveChanged: ((Bool) -> Void)?
+
     // Reuse CIContext for performance (creating this every frame is expensive)
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     // Cache the sRGB color space
@@ -26,7 +29,7 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         guard let body = message.body as? [String: Any] else { return }
 
         if let errorMsg = body["error_message"] as? String {
-            print("⚠️ JS Error: \(errorMsg)")
+            print("JS Error: \(errorMsg)")
             return
         }
 
@@ -41,6 +44,10 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             {
                 self.dataCallbackName = callbackName
                 self.startARSession(options: options)
+                
+                // Notify UI to hide address bar
+                self.onSessionActiveChanged?(true)
+                
                 if let responseCallback = body["callback"] as? String {
                     replyToJS(
                         callback: responseCallback,
@@ -48,8 +55,8 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
                 }
             }
         case "stopAR":
-            isSessionRunning = false
-            arView?.session.pause()
+            // JS requested stop
+            self.stopSession(notifyJS: false)
         default: break
         }
     }
@@ -59,6 +66,24 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         config.planeDetection = [.horizontal, .vertical]
         arView?.session.run(config, options: [.resetTracking, .removeExistingAnchors])
         isSessionRunning = true
+    }
+    
+    // Helper to stop session from either JS or SwiftUI
+    func stopSession(notifyJS: Bool = true) {
+        guard isSessionRunning else { return }
+        
+        // 1. Stop Native Session immediately
+        isSessionRunning = false
+        arView?.session.pause()
+        
+        // 2. Notify UI to show address bar again
+        self.onSessionActiveChanged?(false)
+        
+        // 3. Force Reload the Page
+        // This ensures the WebGL context, video textures, and JS loops 
+        // are completely destroyed, preventing the "frozen frame" issue.
+        print("AR Session stopped. Reloading web page to clean state.")
+        webView?.reload()
     }
 
     nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
