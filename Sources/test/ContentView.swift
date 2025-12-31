@@ -1,11 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
-    // Default starting URL
-    @State private var urlString: String = "https://threejs.org/examples/webxr_ar_hittest.html"
-    // The URL actually being displayed by the AR view
-    @State private var currentURL: URL? = URL(string: "https://threejs.org/examples/webxr_ar_hittest.html")
-    // Track if AR session is running
+    @State private var urlString: String = AppConfig.startURL
+    @State private var currentURL: URL? = URL(string: AppConfig.startURL)
     @State private var isARActive: Bool = false
     
     var body: some View {
