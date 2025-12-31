@@ -40,7 +40,7 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             }
         case "requestSession":
             if let options = body["options"] as? [String: Any],
-                let callbackName = body["data_callback"] as? String
+               let callbackName = body["data_callback"] as? String
             {
                 self.dataCallbackName = callbackName
                 self.startARSession(options: options)
@@ -59,7 +59,7 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             self.stopSession(notifyJS: false)
             
         case "hitTest":
-            // --- FIX: Handle Hit Testing ---
+            // --- FIX: Handle Hit Testing using modern Raycast API ---
             if let x = body["x"] as? Double,
                let y = body["y"] as? Double,
                let callback = body["callback"] as? String {
@@ -95,7 +95,7 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         webView?.reload()
     }
     
-    // --- Hit Test Implementation ---
+    // --- Hit Test Implementation (Updated to Raycast) ---
     func performHitTest(x: Double, y: Double, callback: String) {
         guard let arView = arView else { return }
         
@@ -105,10 +105,23 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             y: CGFloat(y) * arView.bounds.height
         )
         
-        // Perform ARKit Hit Test (using .estimatedHorizontalPlane or .existingPlane)
-        // Note: raycastQuery is preferred in modern ARKit, but hitTest is simpler to map directly to the polyfill's older structure
-        let types: ARHitTestResult.ResultType = [.existingPlaneUsingExtent, .estimatedHorizontalPlane, .estimatedVerticalPlane]
-        let results = arView.hitTest(point, types: types)
+        // Use modern Raycast Query instead of deprecated hitTest.
+        // We prioritize finding existing plane geometry.
+        // If that fails, we fall back to estimated planes.
+        
+        var results: [ARRaycastResult] = []
+        
+        // 1. Try Existing Plane Geometry (Most stable)
+        if let query = arView.raycastQuery(from: point, allowing: .existingPlaneGeometry, alignment: .any) {
+            results = arView.session.raycast(query)
+        }
+        
+        // 2. If no existing plane, try Estimated Plane (Instant, but less accurate)
+        if results.isEmpty {
+            if let query = arView.raycastQuery(from: point, allowing: .estimatedPlane, alignment: .any) {
+                results = arView.session.raycast(query)
+            }
+        }
         
         var hitsPayload: [[String: Any]] = []
         
@@ -241,10 +254,11 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         guard let webView = webView else { return }
         if let str = data as? String {
             webView.evaluateJavaScript("\(callback)('\(str)')")
-        } else if let dict = data as? Any, // Can be Dict or Array of Dicts
-            let jsonData = try? JSONSerialization.data(withJSONObject: dict),
+        } else if let jsonData = try? JSONSerialization.data(withJSONObject: data),
             let jsonString = String(data: jsonData, encoding: .utf8)
         {
+            // Removed the redundant "as? Any" check here to fix the compiler warning.
+            // JSONSerialization will implicitly handle valid Objects/Arrays or throw error.
             webView.evaluateJavaScript("\(callback)(\(jsonString))")
         }
     }
