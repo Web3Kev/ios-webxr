@@ -4,9 +4,8 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
-    # Integrations must be a sibling of environment (not nested)
     integrations:
-      app_store_connect: ZD3256H6H6
+      app_store_connect: Codemagic
 
     environment:
       groups:
