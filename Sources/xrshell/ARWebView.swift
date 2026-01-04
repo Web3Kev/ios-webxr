@@ -38,8 +38,9 @@ struct ARWebView: UIViewRepresentable {
         contentController.addUserScript(errorScript)
 
         // 2. Load Polyfill
-        if let url = Bundle.module.url(forResource: "webxr-polyfill", withExtension: "js"),
-            let polyfillSource = try? String(contentsOf: url)
+        // CHANGED: Use Bundle.main instead of Bundle.module for Xcode Project builds
+        if let url = Bundle.main.url(forResource: "webxr-polyfill", withExtension: "js"),
+           let polyfillSource = try? String(contentsOf: url)
         {
             let userScript = WKUserScript(
                 source: polyfillSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
