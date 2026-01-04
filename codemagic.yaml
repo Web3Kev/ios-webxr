@@ -19,15 +19,15 @@ workflows:
       cocoapods: default
 
     scripts:
-      - name: Inject App Configuration
+      - name: Inject Configuration
         script: |
           echo "Injecting AppConfig..."
-          # We still generate this file because it contains the Dynamic START_URL
+          # Only AppConfig needs injection. 
+          # Info.plist and project.yml are handled by the repo and XcodeGen.
           CONFIG_PATH="Sources/xrshell/AppConfig.swift"
           
           cat <<EOF > "$CONFIG_PATH"
           import Foundation
-
           struct AppConfig {
               static let startURL = "$START_URL"
           }
@@ -35,9 +35,7 @@ workflows:
 
       - name: Generate App Icons
         script: |
-          # If you commit your Assets.xcassets folder to the repo, you can delete this entire step.
           echo "Generating App Icons..."
-          
           ICON_SOURCE="icon.png"
           if [ ! -f "$ICON_SOURCE" ]; then
             echo "⚠️ No icon.png found! Downloading placeholder..."
@@ -94,15 +92,11 @@ workflows:
           resize 152 "Icon-76@2x.png"
           resize 167 "Icon-83.5@2x.png"
           resize 1024 "Icon-1024.png"
-
-          echo "✅ Icons generated successfully."
+          echo "✅ Icons generated."
 
       - name: Generate Xcode Project (XcodeGen)
         script: |
           brew install xcodegen
-          
-          # We just run the command now. 
-          # It reads project.yml and Info.plist from the repo.
           xcodegen generate
 
       # --- AUTOMATIC CODE SIGNING START ---
