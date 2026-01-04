@@ -42,8 +42,10 @@ workflows:
 
       - name: Generate Xcode Project (XcodeGen)
         script: |
-          # 1. Create a project.yml definition for XcodeGen
-          # This replaces the deprecated 'swift package generate-xcodeproj'
+          # 1. Install XcodeGen
+          brew install xcodegen
+
+          # 2. Create a project.yml definition for XcodeGen
           cat <<EOF > project.yml
           name: xrshell
           options:
@@ -66,7 +68,7 @@ workflows:
                 RECOMMENDED_ASSET_TYPES: "appicon"
           EOF
           
-          # 2. Run XcodeGen to create xrshell.xcodeproj
+          # 3. Run XcodeGen to create xrshell.xcodeproj
           xcodegen generate
 
       # --- AUTOMATIC CODE SIGNING START ---
