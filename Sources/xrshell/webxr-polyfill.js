@@ -5035,7 +5035,7 @@ host this content on a secure origin for the best user experience.
                 const styleEl = document.createElement('style');
                 document.head.appendChild(styleEl);
                 const styleSheet = styleEl.sheet;
-                styleSheet.insertRule('.arkit-device-wrapper { z-index: -1; display: none; }', 0);
+                styleSheet.insertRule('.arkit-device-wrapper { z-index: 0; display: none; }', 0);
                 styleSheet.insertRule('.arkit-device-wrapper, .xr-canvas { background-color: transparent; position: absolute; top: 0; left: 0; bottom: 0; right: 0; }', 0);
                 styleSheet.insertRule('.arkit-device-wrapper, .arkit-device-wrapper canvas { width: 100%; height: 100%; padding: 0; margin: 0; -webkit-user-select: none; user-select: none; }', 0);
             };
