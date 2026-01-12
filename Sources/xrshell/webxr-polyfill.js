@@ -2998,7 +2998,8 @@ host this content on a secure origin for the best user experience.
             if (options.entityTypes) {
                 for (const entityType of options.entityTypes) {
                     if (entityType !== 'plane') {
-                        throw new Error('XRHitTestSource does not support entityType' + entityType + ' yet.');
+                        console.warn('XRHitTestSource ignoring unsupported entityType:', entityType);
+                        // throw new Error('XRHitTestSource does not support entityType' + entityType + ' yet.');
                     }
                 }
             }
