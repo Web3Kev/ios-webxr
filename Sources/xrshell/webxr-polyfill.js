@@ -1546,6 +1546,9 @@ to native implementations of the API.`;
         get environmentBlendMode() {
             return this[PRIVATE$15].device.environmentBlendMode || 'opaque';
         }
+        get interactionMode() {
+            return this[PRIVATE$15].mode === 'immersive-ar' ? 'screen-space' : 'world-space';
+        }
         async requestReferenceSpace(type) {
             if (this[PRIVATE$15].ended) {
                 return;
