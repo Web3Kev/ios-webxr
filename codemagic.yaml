@@ -101,9 +101,15 @@ workflows:
       - name: Initialize Keychain
         script: keychain initialize
 
-      - name: Fetch Signing Files
+     - name: Fetch Signing Files
         script: |
+          # Fetch Main App Profile
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          
+          # Fetch App Clip Profile
+          app-store-connect fetch-signing-files "${BUNDLE_ID}.Clip" \
             --type IOS_APP_STORE \
             --create
 

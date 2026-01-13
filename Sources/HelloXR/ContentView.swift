@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
+
+    @Binding var externalLoadURL: URL?
+
     // Navigation State
     @State private var urlString: String = AppConfig.startURL
     @State private var navAction: WebViewNavigationAction = .load(URL(string: AppConfig.startURL)!)
@@ -56,6 +59,12 @@ struct ContentView: View {
         }
         .statusBar(hidden: isARActive)
         .animation(.easeInOut, value: isARActive)
+        .onChange(of: externalLoadURL) { newURL in
+            if let validURL = newURL {
+                urlString = validURL.absoluteString
+                navAction = .load(validURL)
+            }
+        }
     }
     
     // MARK: - Subviews
