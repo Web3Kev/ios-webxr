@@ -3,10 +3,24 @@ import ARKit
 import SceneKit
 import WebKit
 
+// Enum to control WebView actions from SwiftUI
+enum WebViewNavigationAction: Equatable {
+    case idle
+    case load(URL)
+    case goBack
+    case goForward
+    case reload
+}
+
 struct ARWebView: UIViewRepresentable {
-    let url: URL
-    // Binding to control visibility of UI based on AR status
+    // Control bindings
+    @Binding var action: WebViewNavigationAction
     @Binding var isARActive: Bool
+    
+    // State reporting bindings
+    @Binding var currentURLString: String // To update address bar when navigating inside web
+    @Binding var canGoBack: Bool
+    @Binding var canGoForward: Bool
 
     // Helper to determine the correct bundle based on build environment
     private var resourceBundle: Bundle {
@@ -30,11 +44,9 @@ struct ARWebView: UIViewRepresentable {
         contentController.add(context.coordinator, name: "initAR")
         contentController.add(context.coordinator, name: "requestSession")
         contentController.add(context.coordinator, name: "stopAR")
-        
-        // --- FIX: Register the hitTest handler ---
         contentController.add(context.coordinator, name: "hitTest")
 
-        // 1. Better Error Handling Injection
+        // 1. Error Handling Injection
         let errorScript = WKUserScript(
             source: """
                     window.onerror = function(message, source, lineno, colno, error) {
@@ -57,7 +69,6 @@ struct ARWebView: UIViewRepresentable {
         
         let webView = WKWebView(frame: .zero, configuration: webConfig)
         
-        // Enable Web Inspector
         if #available(iOS 16.4, *) {
             webView.isInspectable = true
         }
@@ -75,7 +86,6 @@ struct ARWebView: UIViewRepresentable {
             webView.bottomAnchor.constraint(equalTo: arView.bottomAnchor),
         ])
 
-        // Connect the Coordinator to the views
         context.coordinator.webView = webView
         context.coordinator.arView = arView
 
@@ -88,9 +98,26 @@ struct ARWebView: UIViewRepresentable {
     func updateUIView(_ uiView: ARSCNView, context: Context) {
         guard let webView = context.coordinator.webView else { return }
         
-        // Load the URL if it differs from the current one or if the webview is empty
-        if webView.url?.absoluteString != url.absoluteString {
+        // Handle Navigation Actions
+        switch action {
+        case .idle:
+            break
+        case .load(let url):
+            // Load the URL
             webView.load(URLRequest(url: url))
+            // Reset action to idle immediately via the coordinator helper
+            DispatchQueue.main.async {
+                self.action = .idle
+            }
+        case .goBack:
+            webView.goBack()
+            DispatchQueue.main.async { self.action = .idle }
+        case .goForward:
+            webView.goForward()
+            DispatchQueue.main.async { self.action = .idle }
+        case .reload:
+            webView.reload()
+            DispatchQueue.main.async { self.action = .idle }
         }
         
         // If SwiftUI set isARActive to false, but the session is running, force stop it
@@ -101,10 +128,22 @@ struct ARWebView: UIViewRepresentable {
 
     func makeCoordinator() -> ARWebCoordinator {
         let coordinator = ARWebCoordinator()
-        // Wire up the callback to update the SwiftUI binding
+        
+        // Handle AR State
         coordinator.onSessionActiveChanged = { isActive in
             self.isARActive = isActive
         }
+        
+        // Handle Navigation State (Update buttons and URL bar)
+        coordinator.onNavigationChanged = { [weak coordinator] in
+            guard let webView = coordinator?.webView else { return }
+            self.canGoBack = webView.canGoBack
+            self.canGoForward = webView.canGoForward
+            if let currentUrl = webView.url?.absoluteString {
+                self.currentURLString = currentUrl
+            }
+        }
+        
         return coordinator
     }
 }

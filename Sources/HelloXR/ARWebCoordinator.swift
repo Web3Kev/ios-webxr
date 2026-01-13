@@ -10,10 +10,26 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
     var dataCallbackName: String?
     var isSessionRunning = false
 
-    // Callback to notify SwiftUI when session state changes (true = running, false = stopped)
     var onSessionActiveChanged: ((Bool) -> Void)?
+    
+    var onNavigationChanged: (() -> Void)?
 
-    // Reuse CIContext for performance (creating this every frame is expensive)
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        onNavigationChanged?()
+    }
+    
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        onNavigationChanged?()
+    }
+    
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        onNavigationChanged?()
+    }
+
+    // --- AR / Image Processing Properties ---
+    
+    // Reuse CIContext for performance
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     // Cache the sRGB color space
     let sRGBColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -21,6 +37,8 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
     // Throttling for image sending to maintain FPS
     var frameCounter = 0
     let frameSkip = 15
+    
+    // --- WKScriptMessageHandler ---
     
     func userContentController(
         _ userContentController: WKUserContentController, didReceive message: WKScriptMessage
@@ -58,7 +76,7 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             self.stopSession(notifyJS: false)
             
         case "hitTest":
-            // --- FIX: Handle Hit Testing using modern Raycast API ---
+            // Handle Hit Testing using modern Raycast API
             if let x = body["x"] as? Double,
                let y = body["y"] as? Double,
                let callback = body["callback"] as? String {
@@ -88,34 +106,27 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         self.onSessionActiveChanged?(false)
         
         // 3. Force Reload the Page
-        // This ensures the WebGL context, video textures, and JS loops 
-        // are completely destroyed, preventing the "frozen frame" issue.
         print("AR Session stopped. Reloading web page to clean state.")
         webView?.reload()
     }
     
-    // --- Hit Test Implementation (Updated to Raycast) ---
+    // --- Hit Test Implementation ---
     func performHitTest(x: Double, y: Double, callback: String) {
         guard let arView = arView else { return }
         
-        // Convert normalized coords (0..1) to view coords (pixels)
         let point = CGPoint(
             x: CGFloat(x) * arView.bounds.width,
             y: CGFloat(y) * arView.bounds.height
         )
         
-        // Use modern Raycast Query instead of deprecated hitTest.
-        // We prioritize finding existing plane geometry.
-        // If that fails, we fall back to estimated planes.
-        
         var results: [ARRaycastResult] = []
         
-        // 1. Try Existing Plane Geometry (Most stable)
+        // 1. Try Existing Plane Geometry
         if let query = arView.raycastQuery(from: point, allowing: .existingPlaneGeometry, alignment: .any) {
             results = arView.session.raycast(query)
         }
         
-        // 2. If no existing plane, try Estimated Plane (Instant, but less accurate)
+        // 2. Fallback to Estimated Plane
         if results.isEmpty {
             if let query = arView.raycastQuery(from: point, allowing: .estimatedPlane, alignment: .any) {
                 results = arView.session.raycast(query)
@@ -125,7 +136,6 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         var hitsPayload: [[String: Any]] = []
         
         for result in results {
-            // Convert transform to array
             let tf = result.worldTransform
             let tfArray = toArray(tf)
             
@@ -133,7 +143,6 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
                 "world_transform": tfArray
             ]
             
-            // If it hit an existing anchor (plane), pass the UUID so the polyfill can map it
             if let anchor = result.anchor {
                 hitData["uuid"] = anchor.identifier.uuidString
             }
@@ -143,6 +152,8 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         
         replyToJS(callback: callback, data: hitsPayload)
     }
+
+    // --- ARSessionDelegate ---
 
     nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
         MainActor.assumeIsolated {
@@ -172,7 +183,6 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             let rawWidth = CVPixelBufferGetWidth(frame.capturedImage)
             let rawHeight = CVPixelBufferGetHeight(frame.capturedImage)
 
-            // Assuming we rotate 90 degrees (see convertPixelBufferToBase64)
             let finalWidth = rawHeight
             let finalHeight = rawWidth
 
@@ -183,12 +193,12 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             jsCommand += "window.NativeARData.light_intensity = \(frame.lightEstimate?.ambientIntensity ?? 1000);"
             jsCommand += "window.NativeARData.worldMappingStatus = 'ar_worldmapping_not_available';"
             
-            // 2. Matrix Arrays (Fast conversion)
+            // 2. Matrix Arrays
             jsCommand += "window.NativeARData.camera_transform = \(fastFloatArrayToString(cameraTransform));"
             jsCommand += "window.NativeARData.camera_view = \(fastFloatArrayToString(viewMatrix));"
             jsCommand += "window.NativeARData.projection_camera = \(fastFloatArrayToString(projMatrix));"
 
-            // 3. Native Video (Processed every 30fps frame now for smoothness)
+            // 3. Native Video
             let pixelBuffer = frame.capturedImage
             if let base64String = convertPixelBufferToBase64(pixelBuffer, quality: 0.6) {
                 jsCommand += "window.NativeARData.video_data = '\(base64String)';"
@@ -196,20 +206,20 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
                 jsCommand += "window.NativeARData.video_height = \(finalHeight);"
             }
 
-            // 4. Execute callback (signals JS to read window.NativeARData)
+            // 4. Execute callback
             jsCommand += "\(callbackName)();"
 
             webView.evaluateJavaScript(jsCommand, completionHandler: nil)
         }
     }
 
-    // Helper: Convert CVPixelBuffer to JPEG Base64
+    // --- Helpers ---
+
     private func convertPixelBufferToBase64(_ pixelBuffer: CVPixelBuffer, quality: CGFloat)
         -> String?
     {
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
 
-        // Create a CGImage using the explicit sRGB color space to fix "Dark" images
         guard
             let cgImage = ciContext.createCGImage(
                 ciImage, from: ciImage.extent, format: .RGBA8, colorSpace: sRGBColorSpace)
@@ -217,8 +227,6 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             return nil
         }
 
-        // Convert to UIImage then JPEG Data
-        // orientation: .right handles the 90 degree rotation from Camera Sensor -> UI
         let uiImage = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
 
         guard let jpegData = uiImage.jpegData(compressionQuality: quality) else { return nil }
@@ -242,14 +250,11 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
         } else if let jsonData = try? JSONSerialization.data(withJSONObject: data),
             let jsonString = String(data: jsonData, encoding: .utf8)
         {
-            // Removed the redundant "as? Any" check here to fix the compiler warning.
-            // JSONSerialization will implicitly handle valid Objects/Arrays or throw error.
             webView.evaluateJavaScript("\(callback)(\(jsonString))")
         }
     }
 
     private func fastFloatArrayToString(_ m: simd_float4x4) -> String {
-        // Direct string construction is often faster than creating [Float] -> JSON
         return "[\(m.columns.0.x),\(m.columns.0.y),\(m.columns.0.z),\(m.columns.0.w)," +
                "\(m.columns.1.x),\(m.columns.1.y),\(m.columns.1.z),\(m.columns.1.w)," +
                "\(m.columns.2.x),\(m.columns.2.y),\(m.columns.2.z),\(m.columns.2.w)," +
