@@ -5,17 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>xrshell</string>
+	<string>HelloXR</string>
 	<key>CFBundleExecutable</key>
-	<string>xrshell</string>
+	<string>HelloXR</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.wem.xrshell</string>
+	<string>com.wemtechnology.helloxr</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>xrshell</string>
+	<string>HelloXR</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

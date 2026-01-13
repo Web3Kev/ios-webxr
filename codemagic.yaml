@@ -1,6 +1,6 @@
 workflows:
-  ios-xtool-deploy:
-    name: iOS xtool deployment
+  ios-deploy:
+    name: iOS deployment
     max_build_duration: 120
     instance_type: mac_mini_m2
 
@@ -11,10 +11,10 @@ workflows:
       groups:
         - Wem
       vars:
-        APP_NAME: "WebXR Shell"
-        BUNDLE_ID: "com.wem.xrshell"
-        START_URL: "https://threejs.org/examples/webxr_ar_hittest.html"
-        XCODE_SCHEME: "xrshell"
+        APP_NAME: "HelloXR"
+        BUNDLE_ID: "com.wemtechnology.helloxr"
+        START_URL: "https://pmndrs.github.io/xr/examples/uikit/"
+        XCODE_SCHEME: "HelloXR"
       xcode: latest
       cocoapods: default
 
@@ -24,7 +24,7 @@ workflows:
           echo "Injecting AppConfig..."
           # Only AppConfig needs injection. 
           # Info.plist and project.yml are handled by the repo and XcodeGen.
-          CONFIG_PATH="Sources/xrshell/AppConfig.swift"
+          CONFIG_PATH="Sources/HelloXR/AppConfig.swift"
           
           cat <<EOF > "$CONFIG_PATH"
           import Foundation
@@ -42,7 +42,7 @@ workflows:
             curl -o "$ICON_SOURCE" https://dummyimage.com/1024x1024/007AFF/ffffff.jpg&text=XR
           fi
 
-          ASSETS_DIR="Sources/xrshell/Assets.xcassets"
+          ASSETS_DIR="Sources/HelloXR/Assets.xcassets"
           ICONSET_DIR="$ASSETS_DIR/AppIcon.appiconset"
           mkdir -p "$ICONSET_DIR"
 
@@ -98,7 +98,6 @@ workflows:
           brew install xcodegen
           xcodegen generate
 
-      # --- AUTOMATIC CODE SIGNING START ---
       - name: Initialize Keychain
         script: keychain initialize
 
@@ -112,13 +111,12 @@ workflows:
         script: keychain add-certificates
 
       - name: Apply Provisioning Profiles
-        script: xcode-project use-profiles --project "xrshell.xcodeproj"
-      # --- AUTOMATIC CODE SIGNING END ---
+        script: xcode-project use-profiles --project "HelloXR.xcodeproj"
 
       - name: Build IPA
         script: |
           xcode-project build-ipa \
-            --project "xrshell.xcodeproj" \
+            --project "HelloXR.xcodeproj" \
             --scheme "$XCODE_SCHEME"
 
     artifacts:
