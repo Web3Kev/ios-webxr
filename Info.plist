@@ -6,20 +6,32 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>HelloXR</string>
+	
+    <!-- CHANGE 1: Use EXECUTABLE_NAME -->
 	<key>CFBundleExecutable</key>
-	<string>HelloXR</string>
+	<string>$(EXECUTABLE_NAME)</string>
+	
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	
+    <!-- CHANGE 2: Use PRODUCT_BUNDLE_IDENTIFIER -->
 	<key>CFBundleIdentifier</key>
-	<string>com.wemtechnology.helloxr</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	
+    <!-- CHANGE 3: Use PRODUCT_NAME -->
 	<key>CFBundleName</key>
-	<string>HelloXR</string>
+	<string>$(PRODUCT_NAME)</string>
+	
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	
+    <!-- CHANGE 4: Use MARKETING_VERSION -->
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>$(MARKETING_VERSION)</string>
+	
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>iPhoneOS</string>
@@ -32,6 +44,16 @@
 	<string>17.0</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required for AR experiences.</string>
+    
+    <!-- This key is ignored by the main app but used by the Clip -->
+    <key>NSAppClip</key>
+    <dict>
+        <key>NSAppClipRequestEphemeralUserNotification</key>
+        <false/>
+        <key>NSAppClipRequestLocationConfirmation</key>
+        <false/>
+    </dict>
+
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>
@@ -55,12 +77,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSAppClip</key>
-	<dict>
-		<key>NSAppClipRequestEphemeralUserNotification</key>
-		<false/>
-		<key>NSAppClipRequestLocationConfirmation</key>
-		<false/>
-	</dict>
 </dict>
 </plist>
