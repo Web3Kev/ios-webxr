@@ -32,6 +32,16 @@
 	<string>17.0</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required for AR experiences.</string>
+	
+	<!-- APP CLIP SPECIFIC CONFIGURATION -->
+	<key>NSAppClip</key>
+	<dict>
+		<key>NSAppClipRequestEphemeralUserNotification</key>
+		<false/>
+		<key>NSAppClipRequestLocationConfirmation</key>
+		<false/>
+	</dict>
+	
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>
