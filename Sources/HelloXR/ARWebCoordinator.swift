@@ -2,7 +2,6 @@ import Foundation
 import ARKit
 import SceneKit
 import WebKit
-import VideoToolbox
 
 @MainActor
 class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScriptMessageHandler {
@@ -154,7 +153,7 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
 
             // Throttle image processing
             frameCounter += 1
-            let shouldSendImage = (frameCounter % frameSkip == 0)
+            if frameCounter % 2 != 0 { return }
 
             let orientation: UIInterfaceOrientation = .portrait
             let viewportSize = webView.bounds.size
@@ -168,7 +167,6 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
                 zFar: 1000
             )
 
-            // IMPORTANT: Calculate dimensions based on rotation
             // ARKit buffers are usually landscape. Since we rotate to .right (Portrait),
             // we must swap width and height for the JS payload.
             let rawWidth = CVPixelBufferGetWidth(frame.capturedImage)
@@ -178,43 +176,30 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             let finalWidth = rawHeight
             let finalHeight = rawWidth
 
-            var payload: [String: Any] = [
-                "timestamp": frame.timestamp * 1000,
-                "light_intensity": frame.lightEstimate?.ambientIntensity ?? 1000,
-                "camera_transform": toArray(cameraTransform),
-                "camera_view": toArray(viewMatrix),
-                "projection_camera": toArray(projMatrix),
-                "worldMappingStatus": "ar_worldmapping_not_available",
-                "objects": [],
-                "newObjects": [],
-                "removedObjects": [],
-            ]
+            var jsCommand = "if(!window.NativeARData){window.NativeARData={};}"
+            
+            // 1. Direct assignments
+            jsCommand += "window.NativeARData.timestamp = \(frame.timestamp * 1000);"
+            jsCommand += "window.NativeARData.light_intensity = \(frame.lightEstimate?.ambientIntensity ?? 1000);"
+            jsCommand += "window.NativeARData.worldMappingStatus = 'ar_worldmapping_not_available';"
+            
+            // 2. Matrix Arrays (Fast conversion)
+            jsCommand += "window.NativeARData.camera_transform = \(fastFloatArrayToString(cameraTransform));"
+            jsCommand += "window.NativeARData.camera_view = \(fastFloatArrayToString(viewMatrix));"
+            jsCommand += "window.NativeARData.projection_camera = \(fastFloatArrayToString(projMatrix));"
 
-            // --- IMAGE PROCESSING START ---
-            if shouldSendImage {
-                let pixelBuffer = frame.capturedImage
-                // Convert CVPixelBuffer to JPEG Base64 with forced sRGB
-                if let base64String = convertPixelBufferToBase64(pixelBuffer, quality: 0.6) {
-                    payload["video_data"] = base64String
-                    // Send the swapped dimensions so WebGL textures aren't skewed
-                    payload["video_width"] = finalWidth
-                    payload["video_height"] = finalHeight
-                }
+            // 3. Native Video (Processed every 30fps frame now for smoothness)
+            let pixelBuffer = frame.capturedImage
+            if let base64String = convertPixelBufferToBase64(pixelBuffer, quality: 0.6) {
+                jsCommand += "window.NativeARData.video_data = '\(base64String)';"
+                jsCommand += "window.NativeARData.video_width = \(finalWidth);"
+                jsCommand += "window.NativeARData.video_height = \(finalHeight);"
             }
-            // --- IMAGE PROCESSING END ---
 
-            if let jsonData = try? JSONSerialization.data(withJSONObject: payload),
-                let jsonString = String(data: jsonData, encoding: .utf8)
-            {
-                let js = """
-                        try {
-                            \(callbackName)(\(jsonString));
-                        } catch(e) {
-                            console.error("ARKit Polyfill Error:", e.message);
-                        }
-                        """
-                webView.evaluateJavaScript(js, completionHandler: nil)
-            }
+            // 4. Execute callback (signals JS to read window.NativeARData)
+            jsCommand += "\(callbackName)();"
+
+            webView.evaluateJavaScript(jsCommand, completionHandler: nil)
         }
     }
 
@@ -261,5 +246,13 @@ class ARWebCoordinator: NSObject, WKNavigationDelegate, ARSessionDelegate, WKScr
             // JSONSerialization will implicitly handle valid Objects/Arrays or throw error.
             webView.evaluateJavaScript("\(callback)(\(jsonString))")
         }
+    }
+
+    private func fastFloatArrayToString(_ m: simd_float4x4) -> String {
+        // Direct string construction is often faster than creating [Float] -> JSON
+        return "[\(m.columns.0.x),\(m.columns.0.y),\(m.columns.0.z),\(m.columns.0.w)," +
+               "\(m.columns.1.x),\(m.columns.1.y),\(m.columns.1.z),\(m.columns.1.w)," +
+               "\(m.columns.2.x),\(m.columns.2.y),\(m.columns.2.z),\(m.columns.2.w)," +
+               "\(m.columns.3.x),\(m.columns.3.y),\(m.columns.3.z),\(m.columns.3.w)]"
     }
 }

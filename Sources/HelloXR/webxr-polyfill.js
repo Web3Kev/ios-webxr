@@ -4016,6 +4016,24 @@ host this content on a secure origin for the best user experience.
             if (typeof ARKitWrapper.GLOBAL_INSTANCE !== 'undefined') {
                 throw new Error('ARKitWrapper is a singleton. Use ARKitWrapper.GetOrCreate() to get the global instance.');
             }
+
+            if (!window.NativeARData) {
+                window.NativeARData = {
+                    timestamp: 0,
+                    light_intensity: 1000,
+                    camera_transform: [],
+                    camera_view: [],
+                    projection_camera: [],
+                    worldMappingStatus: 'ar_worldmapping_not_available',
+                    objects: [],
+                    newObjects: [],
+                    removedObjects: [],
+                    video_data: null,
+                    video_width: 0,
+                    video_height: 0
+                };
+            }
+
             this._timestamp = 0;
             this._lightProbe = null;
             this._deviceId = null;
@@ -4270,31 +4288,50 @@ host this content on a secure origin for the best user experience.
             return this._sendMessage('stopSendingComputerVisionData', {}, true, false);
         }
         _onData(data) {
-            this._rawARData = data;
+            // Swift now populates window.NativeARData directly before calling this.
+            const nativeData = window.NativeARData;
 
-            if (data.video_data) {
+            // Fallback for legacy support if 'data' is still passed
+            const sourceData = nativeData || data;
+
+            this._rawARData = sourceData;
+
+            if (sourceData.video_data) {
                 // If using ARKitDevice, inject this data into it
                 if (ARKitWrapper.GLOBAL_INSTANCE && ARKitWrapper.GLOBAL_INSTANCE._deviceRef) {
                     const dev = ARKitWrapper.GLOBAL_INSTANCE._deviceRef;
-                    dev._cameraMetadata.width = data.video_width || 0;
-                    dev._cameraMetadata.height = data.video_height || 0;
-                    // Trigger image load (async)
-                    dev._cameraImage.src = "data:image/jpeg;base64," + data.video_data;
+                    dev._cameraMetadata.width = sourceData.video_width || 0;
+                    dev._cameraMetadata.height = sourceData.video_height || 0;
+
+                    // Directly assign the base64 string
+                    dev._cameraImage.src = "data:image/jpeg;base64," + sourceData.video_data;
                 }
             }
 
             this._worldInformation = null;
-            this._timestamp = this._adjustARKitTime(data.timestamp);
+            this._timestamp = this._adjustARKitTime(sourceData.timestamp);
             this._lightProbe = new XRLightProbe({
-                indirectIrradiance: data.light_intensity / 1000
+                indirectIrradiance: sourceData.light_intensity / 1000
             });
-            copy$5(this._cameraTransform, data.camera_transform);
-            copy$5(this._viewMatrix, data.camera_view);
-            copy$5(this._projectionMatrix, data.projection_camera);
-            this._worldMappingStatus = data.worldMappingStatus;
-            if (data.newObjects.length) {
-                for (let i = 0; i < data.newObjects.length; i++) {
-                    const element = data.newObjects[i];
+
+            // Ensure target arrays exist before copying
+            if (sourceData.camera_transform && sourceData.camera_transform.length === 16) {
+                copy$5(this._cameraTransform, sourceData.camera_transform);
+            }
+            if (sourceData.camera_view && sourceData.camera_view.length === 16) {
+                copy$5(this._viewMatrix, sourceData.camera_view);
+            }
+            if (sourceData.projection_camera && sourceData.projection_camera.length === 16) {
+                copy$5(this._projectionMatrix, sourceData.projection_camera);
+            }
+
+            this._worldMappingStatus = sourceData.worldMappingStatus;
+
+            // Handle objects (safe access)
+            const newObjects = sourceData.newObjects || [];
+            if (newObjects.length) {
+                for (let i = 0; i < newObjects.length; i++) {
+                    const element = newObjects[i];
                     const anchor = this._anchors.get(element.uuid);
                     if (anchor && anchor.deleted) {
                         anchor.deleted = false;
@@ -4302,9 +4339,11 @@ host this content on a secure origin for the best user experience.
                     this._createOrUpdateAnchorObject(element);
                 }
             }
-            if (data.removedObjects.length) {
-                for (let i = 0; i < data.removedObjects.length; i++) {
-                    const element = data.removedObjects[i];
+
+            const removedObjects = sourceData.removedObjects || [];
+            if (removedObjects.length) {
+                for (let i = 0; i < removedObjects.length; i++) {
+                    const element = removedObjects[i];
                     const anchor = this._anchors.get(element);
                     if (anchor) {
                         anchor.notifyOfRemoval();
@@ -4314,12 +4353,15 @@ host this content on a secure origin for the best user experience.
                     }
                 }
             }
-            if (data.objects.length) {
-                for (let i = 0; i < data.objects.length; i++) {
-                    const element = data.objects[i];
+
+            const objects = sourceData.objects || [];
+            if (objects.length) {
+                for (let i = 0; i < objects.length; i++) {
+                    const element = objects[i];
                     this._createOrUpdateAnchorObject(element);
                 }
             }
+
             try {
                 this.dispatchEvent(
                     ARKitWrapper.WATCH_EVENT,
