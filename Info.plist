@@ -29,7 +29,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>MinimumOSVersion</key>
-	<string>17.0</string>
+	<string>16.0</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required for AR experiences.</string>
 	<key>UIDeviceFamily</key>
