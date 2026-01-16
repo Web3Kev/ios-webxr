@@ -5285,7 +5285,7 @@ host this content on a secure origin for the best user experience.
             return watchResult;
         }
         
-         onBaseLayerSet(sessionId, layer) {
+        onBaseLayerSet(sessionId, layer) {
             const session = this._sessions.get(sessionId);
             const canvas = layer.context.canvas;
             const oldLayer = session.baseLayer;
@@ -5300,11 +5300,10 @@ host this content on a secure origin for the best user experience.
             if (gl) {
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
             }
-            // Set viewport to match the full screen
-            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
-            // 1. Force transparency on the root elements
+            // Force transparency on the root elements
             session.htmlBackgroundWas = document.documentElement.style.backgroundColor;
             session.bodyBackgroundWas = document.body.style.backgroundColor;
             
@@ -5312,13 +5311,12 @@ host this content on a secure origin for the best user experience.
             document.body.style.backgroundColor = "transparent";
             document.body.style.backgroundImage = "none";
 
-            // 2. Hide existing DOM elements to prevent UI overlap
+            // Hide existing DOM elements to prevent UI overlap
             var children = document.body.children;
             for (var i = 0; i < children.length; i++) {
                 var child = children[i];
                 if (child !== this._wrapperDiv && child !== canvas &&
                     (!this._domOverlayRoot || !this._domOverlayRoot.contains(child))) {
-                    // Store original display style to restore later
                     if (!child._displayChanged) {
                         child._displayWas = window.getComputedStyle(child).display;
                         child._displayChanged = true;
@@ -5327,7 +5325,7 @@ host this content on a secure origin for the best user experience.
                 }
             }
 
-            // 3. Setup Canvas for AR
+            // Setup Canvas for AR
             session.canvasParent = canvas.parentNode;
             session.canvasNextSibling = canvas.nextSibling;
             session.canvasDisplay = canvas.style.display;
@@ -5336,13 +5334,13 @@ host this content on a secure origin for the best user experience.
 
             canvas.style.display = "block";
             canvas.style.backgroundColor = "transparent";
-            canvas.style.width = "100vw";
-            canvas.style.height = "100vh";
+            canvas.style.width = "100%";  // Use 100%, not 100vw
+            canvas.style.height = "100%"; // Use 100%, not 100vh
 
             // Move canvas into our AR wrapper
             this._wrapperDiv.appendChild(canvas);
             this._wrapperDiv.style.display = "block";
-            this._wrapperDiv.style.zIndex = "1"; // Ensure it sits correctly
+            
         }
 
         userEndedSession() {
