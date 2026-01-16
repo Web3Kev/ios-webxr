@@ -13,7 +13,7 @@ workflows:
       vars:
         APP_NAME: "HelloXR"
         BUNDLE_ID: "com.wemtechnology.helloxr"
-        START_URL: "https://pmndrs.github.io/xr/examples/uikit/"
+        START_URL: "https://helloxr.app"
         XCODE_SCHEME: "HelloXR"
       xcode: latest
       cocoapods: default
