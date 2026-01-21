@@ -5356,7 +5356,7 @@ host this content on a secure origin for the best user experience.
                 this._domOverlayRoot.style.pointerEvents = 'none';
                 
                 // Then re-enable pointer events ONLY on interactive children
-                const interactiveElements = this._domOverlayRoot.querySelectorAll('button, a, input, select, textarea, [role="button"], .interactive');
+                const interactiveElements = this._domOverlayRoot.querySelectorAll('button, a, input, select, img, div, textarea, [role="button"], .interactive');
                 interactiveElements.forEach(el => {
                     el.style.pointerEvents = 'auto';
                 });
