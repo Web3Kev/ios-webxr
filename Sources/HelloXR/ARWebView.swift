@@ -86,6 +86,7 @@ struct ARWebView: UIViewRepresentable {
         //important for full screen
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.scrollView.bounces = false
 
         // 3. Assemble View Hierarchy
         // Container -> ARView (Back) -> WebView (Front)
